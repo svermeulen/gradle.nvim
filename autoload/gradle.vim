@@ -2,7 +2,6 @@
 " the Gradle plugin load lazily; no need to waste users' time with starting a
 " JVM process every time.
 let gradle#javaprg = 'java'
-let s:javaHome = get(g:, 'GradleNvimJavaHome', v:null)
 
 " ===[ VARIABLES ]=============================================================
 " Initialize the channel, do not overwrite existing value (possible if the
@@ -36,13 +35,18 @@ function! s:connect()
     endif
 endfunction
 
+function! s:getCommandEnv()
+    let javaHome = get(g:, 'GradleNvimJavaHome', v:null)
+    if javaHome is v:null
+        return {}
+    endif
+    return {'JAVA_HOME': javaHome}
+endfunction
+
 " Initialize RPC
 function! s:initRpc(job_id)
     if a:job_id == 0
-        let l:opts = {'rpc': v:true, 'on_stderr': funcref('s:on_stderr')}
-        if !(s:javaHome is v:null)
-            let l:opts['env'] = {'JAVA_HOME': s:javaHome}
-        endif
+        let l:opts = {'rpc': v:true, 'on_stderr': funcref('s:on_stderr'), 'env': s:getCommandEnv()}
         let jobid = jobstart(['sh', s:bin], l:opts)
         return jobid
     else
@@ -78,7 +82,10 @@ if filereadable(s:bin)
     call s:connect()
 else
     if input("Plugin gradle.nvim not initialized!  Initialize now? (y/n)") == 'y'
-        call jobstart('gradle install', {'cwd': s:root, 'on_exit': function('s:onInstallCompleted')})
+        call jobstart(['gradle', 'install'], {
+            \ 'cwd': s:root,
+            \ 'on_exit': function('s:onInstallCompleted'),
+            \ 'env': s:getCommandEnv()})
     endif
 endif
 
