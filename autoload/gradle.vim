@@ -2,6 +2,7 @@
 " the Gradle plugin load lazily; no need to waste users' time with starting a
 " JVM process every time.
 let gradle#javaprg = 'java'
+let s:javaHome = get(g:, 'GradleNvimJavaHome', v:null)
 
 " ===[ VARIABLES ]=============================================================
 " Initialize the channel, do not overwrite existing value (possible if the
@@ -15,35 +16,38 @@ let s:hasConnected = v:false
 
 " ===[ CALLBACKS ]=============================================================
 function! s:on_stderr(chan_id, data, name)
-	" echom printf('%s: %s', a:name, string(a:data))
+    " echom printf('%s: %s', a:name, string(a:data))
 endfunction
 
 
 " ===[ SETUP ]=================================================================
 " Entry point. Initialise RPC
 function! s:connect()
-	let l:job_id = s:initRpc(s:job_id)
+    let l:job_id = s:initRpc(s:job_id)
 
-	if l:job_id == 0
-		echoerr "Gradle: cannot start RPC process"
-	elseif l:job_id == -1
-		echoerr "Gradle: RPC process is not executable"
-	else
-		" Mutate our job Id variable to hold the channel ID
-		let s:job_id = l:job_id
+    if l:job_id == 0
+        echoerr "Gradle: cannot start RPC process"
+    elseif l:job_id == -1
+        echoerr "Gradle: RPC process is not executable"
+    else
+        " Mutate our job Id variable to hold the channel ID
+        let s:job_id = l:job_id
         let s:hasConnected = v:true
-	endif
+    endif
 endfunction
 
 " Initialize RPC
 function! s:initRpc(job_id)
-	if a:job_id == 0
-		let l:opts = {'rpc': v:true, 'on_stderr': funcref('s:on_stderr')}
-		let jobid = jobstart(['sh', s:bin], l:opts)
-		return jobid
-	else
-		return a:job_id
-	endif
+    if a:job_id == 0
+        let l:opts = {'rpc': v:true, 'on_stderr': funcref('s:on_stderr')}
+        if !(s:javaHome is v:null)
+            let l:opts['env'] = {'JAVA_HOME': s:javaHome}
+        endif
+        let jobid = jobstart(['sh', s:bin], l:opts)
+        return jobid
+    else
+        return a:job_id
+    endif
 endfunction
 
 function! gradle#handshake()
